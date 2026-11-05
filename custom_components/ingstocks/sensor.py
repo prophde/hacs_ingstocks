@@ -51,8 +51,8 @@ class INGStocksSensor(Entity):
         return self._attributes
 
     async def async_update(self):
-        header_url = f"https://component-api.wertpapiere.ing.de/api/v1/components/instrumentheader/{self._isin}"
-        keyfigures_url = f"https://component-api.wertpapiere.ing.de/api/v1/share-ng/keyfigures/{self._isin}"
+        header_url = f"https://component-api.wertpapiere.ing.de/api/v1/instrument-header?isinOrSearchTerm={self._isin}"
+        keyfigures_url = f"https://component-api.wertpapiere.ing.de/api/v1/share/keyfigures/{self._isin}"
         timeout = aiohttp.ClientTimeout(total=15)
 
         try:
