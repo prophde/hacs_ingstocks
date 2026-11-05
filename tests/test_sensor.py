@@ -82,7 +82,7 @@ class SensorTests(unittest.TestCase):
         import aiohttp
         session = FakeSession([
             FakeResponse({"price": 42}), FakeResponse({}),
-            FakeResponse(error=aiohttp.ClientResponseError(None, (), status=503)),
+            FakeResponse(error=aiohttp.ClientError("HTTP 503")),
         ])
         sensor = module.INGStocksSensor("DE0000000001", session)
         asyncio.run(sensor.async_update())
