@@ -69,26 +69,43 @@ class INGStocksSensor(Entity):
                 "name": data.get("name"),
                 "isin": data.get("isin"),
                 "currency": data.get("currencySign"),
-                "change_percent": round(float(data.get("changePercent") or 0), 2),
+                "change_percent": (round(float(data["changePercent"]), 2)
+                                   if data.get("changePercent") is not None else None),
                 "change_absolute": data.get("changeAbsolute"),
                 "exchange": data.get("exchangeName"),
                 "last_update": data.get("priceChangeDate"),
             }
 
-            async with self._session.get(keyfigures_url, timeout=timeout) as response:
-                response.raise_for_status()
-                keyfigures = await response.json()
-            if not isinstance(keyfigures, dict):
-                raise ValueError("Unerwartete Kennzahlen-Antwort")
-            attributes.update({
-                "dividend_yield": round(float(keyfigures.get("dividendYield") or 0), 4),
-                "dividend_per_share": keyfigures.get("dividendPerShare"),
-                "price_earnings_ratio": keyfigures.get("priceEarningsRatio"),
-                "market_capitalization": keyfigures.get("marketCapitalization"),
-                "market_cap_currency": keyfigures.get("marketCapitalizationCurrencyIsoCode"),
-                "52w_low": keyfigures.get("fiftyTwoWeekLow"),
-                "52w_high": keyfigures.get("fiftyTwoWeekHigh"),
-            })
+            # Kennzahlen sind optional: ein Fehler darf gültige Kursdaten nicht verwerfen.
+            try:
+                async with self._session.get(keyfigures_url, timeout=timeout) as response:
+                    response.raise_for_status()
+                    keyfigures = await response.json()
+                if not isinstance(keyfigures, dict):
+                    raise ValueError("Unerwartete Kennzahlen-Antwort")
+                yield_value = keyfigures.get("dividendYield")
+                attributes.update({
+                    "dividend_yield": (
+                        round(float(yield_value), 4) if yield_value is not None else None
+                    ),
+                    "dividend_per_share": keyfigures.get("dividendPerShare"),
+                    "price_earnings_ratio": keyfigures.get("priceEarningsRatio"),
+                    "market_capitalization": keyfigures.get("marketCapitalization"),
+                    "market_cap_currency": keyfigures.get("marketCapitalizationCurrencyIsoCode"),
+                    "52w_low": keyfigures.get("fiftyTwoWeekLow"),
+                    "52w_high": keyfigures.get("fiftyTwoWeekHigh"),
+                })
+            except (aiohttp.ClientError, TimeoutError, ValueError, TypeError) as err:
+                _LOGGER.warning("ING-Kennzahlen für %s nicht verfügbar: %s", self._isin, err)
+                attributes.update({
+                    "dividend_yield": None,
+                    "dividend_per_share": None,
+                    "price_earnings_ratio": None,
+                    "market_capitalization": None,
+                    "market_cap_currency": None,
+                    "52w_low": None,
+                    "52w_high": None,
+                })
             self._state = round(float(price), 2)
             self._attributes = attributes
             self._available = True
